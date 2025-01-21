@@ -8,7 +8,7 @@ os.environ["OPENAI_API_KEY"] = os.environ.get('API_KEY')
 embedding_model = {"encode": os.environ}
 
 # 데이터 폴더 경로
-folder_path = 'data'
+folder_path = 'data_test'
 
 # 모든 엑셀 파일을 읽어서 데이터를 합침
 all_data = []
@@ -27,28 +27,30 @@ for file_name in os.listdir(folder_path):
             answer = row['답변']
             link = row['링크']
             category = row['카테고리']
-            all_data.append({
-                "questions": questions,
-                "answer": answer,
-                "link": link,
-                "category": category
-            })
+            # 각 질문별로 항목 추가
+            for question in questions:
+                all_data.append({
+                    "question": question.strip(),  # 각 질문 추가, 공백 제거
+                    "answer": answer,
+                    "link": link,
+                    "category": category
+                })
 
 print(f"총 {len(all_data)}개의 질문-답변 쌍이 있습니다.")
 
 # index 저장 경로 설정
 index_storage_path = './index_storage'
 
-from llama_index.core import VectorStoreIndex, Document, SimpleDirectoryReader, StorageContext, load_index_from_storage
+from llama_index.core import VectorStoreIndex, Document, StorageContext, load_index_from_storage
 
 # 문서 목록 생성
 documents = []
+count = 0
 for qa in all_data:
-    for question in qa["questions"]:
-        content = f"질문: {question}\n답변: {qa['answer']}\n링크: {qa['link']}\n카테고리: {qa['category']}"
-        doc = Document(text=content)
-        # print(doc)
-        documents.append(doc)
+    count = count+1
+    content = f"질문:  {qa['question']}\n답변: {qa['answer']}\n링크: {qa['link']}\n카테고리: {qa['category']}"
+    doc = Document(text=content)
+    documents.append(doc)
 
 # 기존 저장된 인덱스가 있으면 로드, 없으면 새로 생성 -> 임베딩을 생성할 때 발생하는 비용 방지 (모델 재학습 필요시 index_storage 삭제 후 코드 실행)
 if os.path.exists(index_storage_path):
@@ -57,11 +59,8 @@ if os.path.exists(index_storage_path):
     index = load_index_from_storage(storage_context)
 else:
     print("새로운 인덱스를 생성합니다...")
-    # 문서 로드 및 벡터 생성
-    documents = SimpleDirectoryReader('./data').load_data()
     # 생성된 벡터를 인덱스에 저장
     index = VectorStoreIndex.from_documents(documents)
-    
     # 생성된 인덱스 저장
     index.storage_context.persist(index_storage_path)
     print("인덱스가 저장되었습니다!")
@@ -84,7 +83,7 @@ print(konlpy.__file__)
 # 문장 데이터를 기반으로 단어 임베딩 학습
 sentences = [
     ["원룸", "정투룸", "미투룸", "쓰리룸"],
-    ["매물", "원룸", "방", "방만"],
+    ["매물", "방", "방만"],
     ["특정 지역", "흥해읍", "양덕동", "장성동", "창포동"],
     ["최초등록일", "접수일"],
     ["전화번호", "전번", "연락처"],
@@ -151,7 +150,7 @@ def chatbot():
         results = retriever.retrieve(modified_question)
         
         # 유사도가 0.86 이상인 결과만 필터링
-        filtered_results = [node_with_score for node_with_score in results if node_with_score.score >= 0.86]
+        filtered_results = [node_with_score for node_with_score in results if node_with_score.score >= 0.7]
         
         # 필터링된 결과가 있을 경우, 해당 문서 사용
         if filtered_results:
@@ -163,7 +162,7 @@ def chatbot():
                 answer = ""
                 link = ""
 
-                print(f"Processing line: {node_content}")  # 각 줄 출력하여 디버깅
+                print(f"Processing line: {node_content},  + ", node_with_score.score)  # 각 줄 출력하여 디버깅
                 print("-" * 30) 
                 
                 # 정확도 향상을 위한 데이터 범위 지정
