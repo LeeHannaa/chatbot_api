@@ -4,7 +4,7 @@ import pandas as pd
 local = mysql.connector.connect(
 	host="localhost",
     user="root",
-    password="Dlgkssk5391!",
+    password="!",
     database="ddhouse"
 )
 
