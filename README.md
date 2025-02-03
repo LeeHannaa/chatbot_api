@@ -26,11 +26,11 @@
     - 동일하게 처리할 단어 (ex: **특정지역**, 양덕동, 흥해읍, 장성동)는 python 코드 내에서 메인 단어 설정 후 나머지 단어(양덕동, 흥해읍, 장성동)는 메인 단어(특정지역)로 매핑 되는 코드에 단어 추가 ⇒ 질문 데이터 학습 시 메인 단어만 학습하면 됨
         - ex: “양덕동에만 있는 매물을 보고 싶은데” → “특정지역에만 있는 매물을 보고 싶은데”
 7. **테스트 [ui code](https://github.com/LeeHannaa/chatbot_csr.git) / [postman](https://leehannanaa.postman.co/workspace/My-Workspace~c627d9ef-7ce2-4938-8d37-46f1b9f1678f/collection/28908791-15e011e0-ca1c-4bb9-ac3d-9059e05136d1?origin=tab-menu)**
-
+8. **세부 진행 과정 [Notion](https://www.notion.so/AI-15ecaaf36f6f80cfa452f2987ccdc817)**
 
 
 #
 ### 매물 추천 서비스
 1. **매물 추천 api 기능 명세**
-    - http://127.0.0.1:5000/api/recommend (method = post)
+    - http://127.0.0.1:5000/api/recommend/{id} (method = get)
         - 사용자 매물 추천 서비스 api
