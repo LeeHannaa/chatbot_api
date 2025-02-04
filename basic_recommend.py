@@ -8,6 +8,7 @@ local = mysql.connector.connect(
     database="ddhouse"
 )
 
+# TODO : 전처리한 customer_memo 데이터 포함 유사도 분석 실시 (일단 엑셀로 접근)
 # db에서 필요한 데이터 가져오기
 cur = local.cursor(buffered=True)
 cur.execute("SELECT id, location, apt_name, floor, area, bargain, bargain_m, charter_m, month_security, monthly_m, sale_price FROM apt")
@@ -105,9 +106,8 @@ from flask_cors import CORS
 main = Flask(__name__)
 CORS(main, resources={r"/api/*": {"origins": "*"}})
 # 예시 - 매물 id로 api 요청
-@main.route('/api/recommend', methods=['POST'])
-def recommend():
-    id = request.json.get('id')
+@main.route('/api/recommend/<int:id>', methods=['GET'])
+def recommend(id):
     try:
         result = basic_apt_based_filtering(id)
         print("------------------------------- 결과 ------------------------------")
