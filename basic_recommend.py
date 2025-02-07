@@ -8,96 +8,107 @@ local = mysql.connector.connect(
     database="ddhouse"
 )
 
-# TODO : 전처리한 customer_memo 데이터 포함 유사도 분석 실시 (일단 엑셀로 접근)
 # db에서 필요한 데이터 가져오기
 cur = local.cursor(buffered=True)
-cur.execute("SELECT id, location, apt_name, floor, area, bargain, bargain_m, charter_m, month_security, monthly_m, sale_price FROM apt")
+cur.execute("SELECT id, location, apt_name, area, customer_memo, 매매금액, 전세금액, 월세보중금, 월세금액, words FROM test0206")
 apt_data = cur.fetchall()
-cur.execute("SELECT apt_name, avg_bargain_m FROM avg_bargain")
-avg_data = cur.fetchall()
 
-selected_columns = ['id', 'location', 'apt_name', 'floor', 'area', 'bargain', 'bargain_m', 'charter_m', 'month_security', 'monthly_m', 'sale_price']
+selected_columns = ['id', 'location', 'apt_name', 'area', 'customer_memo', '매매금액', '전세금액', '월세보중금', '월세금액', 'words']
 apt_df = pd.DataFrame(apt_data, columns=selected_columns)
-
-selected_columns = ['apt_name', 'avg_bargain_m']
-avg_df = pd.DataFrame(avg_data, columns=selected_columns)
 # print(avg_df)
-
-
 # print(f"데이터프레임 크기: {apt_df.shape}")
 apt_df = apt_df.dropna()
-avg_df = avg_df.dropna()
-# 1. apt_df와 avg_df 병합
-merged_df = apt_df.merge(avg_df, on='apt_name', how='left')
-# print(apt_df.head())
 
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-
-# TF-IDF 변환을 위한 벡터화 객체 생성
-tfidf_vectorizer = TfidfVectorizer(lowercase=True, max_features=1000)
-
-merged_df['weighted_location'] = merged_df['location'] * 3  # location을 3배 가중치
-merged_df['basic_apt'] = (
-    merged_df['weighted_location'] + ' ' +
-    ' area : ' + merged_df['area'].astype(str) + ' ' +
-    ' bargain : ' + merged_df['bargain'].astype(str) + ' ' +
-    ' bargain_m : ' + merged_df['bargain_m'].astype(str)
+from sklearn.preprocessing import MinMaxScaler
+# 가격과 면적 정규화 -> 최소값을 0으로, 최대값을 1로 변환 (숫자로 표기할 경우 각 항목에 대한 인식이 안됨, 단순히 숫자를 텍스트로 생각하고 비교함)
+scaler = MinMaxScaler()
+apt_df[['매매금액', '전세금액', '월세보중금', '월세금액', 'area']] = scaler.fit_transform(
+    apt_df[['매매금액', '전세금액', '월세보중금', '월세금액', 'area']]
 )
-# print("apt_data check \n", merged_df['basic_apt'])
 
-# TF-IDF 행렬 생성
-tfidf_matrix = tfidf_vectorizer.fit_transform(merged_df['basic_apt'])
-# print(tfidf_matrix)
+apt_df['location'] = apt_df['location'] * 2 # location을 2배 가중치
+apt_df['words'] = apt_df['words'].astype(str) * 2
+# 텍스트 데이터 생성 (TF-IDF 입력용)
+apt_df['basic_apt'] = (
+    'location: ' + apt_df['location'] + ' ' +
+    'words: ' + apt_df['words'].astype(str)
+)
 
-from sklearn.metrics.pairwise import cosine_similarity
-# basic_apt 기반 필터링
+# TF-IDF 벡터 변환
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+tfidf_vectorizer = TfidfVectorizer(lowercase=True)
+tfidf_matrix = tfidf_vectorizer.fit_transform(apt_df['basic_apt'])
 
-# 사용자가 설정한 조건이 없는 경우 : 기본 추천 조건 우선 순위
+# 가격 벡터 생성 (유클리드 거리 계산용)
+from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
+price_features = apt_df[['매매금액', '전세금액', '월세보중금', '월세금액']]
+price_distances = euclidean_distances(price_features)
+area_features = apt_df[['area']]
+area_distances = euclidean_distances(area_features)
+
+
+# 기본 추천 조건 우선 순위
 def basic_apt_based_filtering(id):
     # 입력된 id에 해당하는 매물 정보 찾기
-    selected_apt = merged_df[merged_df['id'] == id].iloc[0]
+    selected_apt = apt_df[apt_df['id'] == id].iloc[0]
     
     # 입력된 id와 유사도 측정
-    idx = merged_df[merged_df['id'] == id].index[0]
-    sim_scores = cosine_similarity(tfidf_matrix[idx], tfidf_matrix)[0]
+    idx = apt_df[apt_df['id'] == id].index[0]
+    # 텍스트 기반 유사도 (코사인 유사도)
+    text_sim_scores = cosine_similarity(tfidf_matrix[idx], tfidf_matrix)[0]
+    # 가격 기반 유사도 (유클리드 거리 → 반비례)
+    price_sim_scores = 1 - price_distances[idx]
+    # 면적 기반 유사도 (유클리드 거리 → 반비례)
+    area_sim_scores = 1 - area_distances[idx]
+    # 최종 유사도
+    final_similarity = 0.2 * text_sim_scores + 0.55 * price_sim_scores + 0.25 * area_sim_scores
 
     # 유사도에 따라 정렬 (자기 자신 제외)
-    sim_scores = sorted(list(enumerate(sim_scores)), key=lambda x: x[1], reverse=True)[1:]
+    sim_scores = sorted(list(enumerate(final_similarity)), key=lambda x: x[1], reverse=True)[1:]
     
-    # 결과 리스트 생성
-    result_str = ""
     # 먼저 입력된 id에 해당하는 정보 추가
-    price = f"{selected_apt['bargain_m']}만원 (매매) / {selected_apt['charter_m']}만원 (전세) / 보증금 : {selected_apt['month_security']} | {selected_apt['monthly_m']} (월세) / {selected_apt['sale_price']}원 (분양)"
-    result_str += f"{selected_apt['id']}번 {selected_apt['apt_name']} : {selected_apt['location']}, {selected_apt['area']}평, {price}, {selected_apt['floor']}층 \n\n\n"
-
+    recommended_apts = []
+    recommended_apts.append({
+        'id': int(selected_apt['id']),
+        'location': selected_apt['location'],
+        'apt_name': selected_apt['apt_name'],
+        'area': float(selected_apt['area']),
+        '매매금액': float(selected_apt['매매금액']),
+        '전세금액': float(selected_apt['전세금액']),
+        '월세보중금': float(selected_apt['월세보중금']),
+        '월세금액': float(selected_apt['월세금액']),
+        'words': selected_apt['words']
+    })
     seen_apt_names = set()
     seen_apt_names.add(selected_apt['apt_name'])
-
-    # 최대 8개의 서로 다른 아파트를 추천
+    # 최대 10개의 서로 다른 아파트를 추천
     count = 0
+    print("------------------------------- 결과 ------------------------------")
     for i, score in sim_scores:
-        row = merged_df.iloc[i]
-        
-        # 이미 추천된 아파트는 건너뛰기
+        row = apt_df.iloc[i]
         if row['apt_name'] in seen_apt_names:
             continue
-        
-        # 아파트 이름 추가
+
         seen_apt_names.add(row['apt_name'])
-        
-        # 가격 정보 처리
-        price = f"{row['bargain_m']}만원 (매매) / {row['charter_m']}만원 (전세) / 보증금 : {row['month_security']} | {row['monthly_m']} (월세) / {row['sale_price']}원 (분양)"
-        result_str += f"{row['id']}번 {row['apt_name']} : {row['location']}, {row['area']}평, {price}, {row['floor']}층 \n"
-        
-        # 8개의 서로 다른 아파트만 추천
+        recommended_apts.append({
+            'id': int(row['id']),
+            'location': row['location'],
+            'apt_name': row['apt_name'],
+            'area': float(row['area']),
+            '매매금액': float(row['매매금액']),
+            '전세금액': float(row['전세금액']),
+            '월세보중금': float(row['월세보중금']),
+            '월세금액': float(row['월세금액']),
+            'words': row['words'],
+            'similarity': float(score)
+        })
+        print(recommended_apts[count], " \n\n")
+
         count += 1
-        if count >= 8:
+        if count >= 10:
             break
     
-    return result_str.strip()  # 마지막 줄바꿈 제거
+    return recommended_apts
 
 
 from flask import Flask, jsonify, request
@@ -110,8 +121,7 @@ CORS(main, resources={r"/api/*": {"origins": "*"}})
 def recommend(id):
     try:
         result = basic_apt_based_filtering(id)
-        print("------------------------------- 결과 ------------------------------")
-        print(result)
+        # print(result)
         return jsonify(str(result))
     except Exception as e:
         # 예외가 발생하면 에러 메시지 반환
@@ -120,3 +130,6 @@ def recommend(id):
 
 if __name__ == '__main__':
     main.run(debug=True)
+    
+    
+    
