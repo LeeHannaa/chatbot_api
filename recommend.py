@@ -4,7 +4,7 @@ import pandas as pd
 local = mysql.connector.connect(
 	host="localhost",
     user="root",
-    password="!",
+    password="Dlgkssk5391!",
     database="ddhouse"
 )
 
@@ -73,11 +73,11 @@ def basic_apt_based_filtering(id):
     filtered_apts['similarity'] = filtered_apts['id'].apply(get_similarity)
     
     # 이미 출력된 아파트를 추적하는 set
-    seen_apt_names = set()
-    seen_apt_names.add(selected_apt['apt_name'])
+    # seen_apt_names = set()
+    # seen_apt_names.add(selected_apt['apt_name'])
     recommended_apts = []
     
-    # 유사도 0.1 이상인 서로 다른 아파트를 추천 (최대 10개)
+    # 유사도 0.1 이상인 서로 다른 아파트를 추천 (최대 15개)
     count = 0
     print("\n[🏡 추천 매물 리스트]")
     for _, row in filtered_apts.sort_values(by='similarity', ascending=False).iterrows():
@@ -86,15 +86,15 @@ def basic_apt_based_filtering(id):
             continue
         
         # 같은 아파트명은 제외
-        if row['apt_name'] in seen_apt_names:
-            continue
+        # if row['apt_name'] in seen_apt_names:
+        #     continue
         
         count += 1
-        if float(row['similarity']) < 0.04 or count > 10:
+        if float(row['similarity']) < 0.04 or count > 15:
             break
         
         # 새로운 아파트만 추가
-        seen_apt_names.add(row['apt_name'])
+        # seen_apt_names.add(row['apt_name'])
         recommended_apts.append({
             'id': int(row['id']),
             'location': row['location'],
