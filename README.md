@@ -49,14 +49,20 @@
        - 범위내 1차 필터링 된 매물 중 추천하도록 설정
      - **TfidfVectorizer**를 사용해 location, 전처리한 memo 백터화 표현 (코사인 유사도를 사용하기 위함)
      - **cosine_similarity**를 사용해 텍스트 기반 유사도 측정
-     - 최대 10개의 서로 다른 매물 추천 (유사도가 0.1 미만인 경우 더이상 추천하지 않도록 설정)
-       - 같은 단지 내 아파트 추천 x
+     - 유사도 순서에 따른 매물 정렬
+     - 최대 15개의 서로 다른 매물 추천 (유사도가 0.04 미만인 경우 더이상 추천하지 않도록 설정)
+       - 같은 단지 내 아파트 추천 허용
 4. **챗봇 api 기능 명세**
    - http://127.0.0.1:5000/api/recommend/{id} (method = get)
      - 사용자 매물 추천 서비스 api
 5. **관련 파일**
    - 파이썬 코드 : preprocessing.py (memo 데이터 전처리), saveindb.py (엑셀 데이터 db에 저장), recommend.py(매물 추천 기능)
 6. **데이터, 코드 사용법**
-   - .....
+   - (다음 사용법은 DB에 원하는 데이터가 다 저장되어있다고 가정 - db에 넣어야 하는 경우는 전처리 파일과 db에 저장 파일 참고)
+   - 숫자의 데이터 경우 사전 필터링으로 진행
+     - filtered_apts에 허용 가능 범위 지정하여 일차 필터링
+   - 글자의 데이터 경우 벡터화 후 코사인 유사도 적용
+     - apt_df에 유사도에 반영하고자 하는 데이터 추가
+     - 백터화 후 코사인 유사도 구하기
 7. **테스트 [postman](https://leehannanaa.postman.co/workspace/My-Workspace~c627d9ef-7ce2-4938-8d37-46f1b9f1678f/request/28908791-fd66a48e-b445-439b-a5b4-38a83374e5d3)**
 8. **세부 진행 과정 [Notion](https://www.notion.so/AI-18fcaaf36f6f80adbfb6d58871a11d0a?pvs=4)**
