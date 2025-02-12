@@ -9,6 +9,7 @@ local = mysql.connector.connect(
 )
 
 # db에서 필요한 데이터 가져오기
+# TODO : 준공년도, 방향, 아파트 좌표 등 추가 데이터를 가져오면 됨.
 cur = local.cursor(buffered=True)
 cur.execute("SELECT id, location, apt_name, area, customer_memo, 매매금액, 전세금액, 월세보중금, 월세금액, words FROM ddapt")
 apt_data = cur.fetchall()
@@ -22,8 +23,9 @@ apt_df = apt_df.dropna()
 # 원본 데이터 백업
 original_apt_df = apt_df.copy()
 
-# apt_df['location'] = apt_df['location'] * 2 # location을 2배 가중치
-apt_df['words'] = apt_df['words'] * 2 # location을 2배 가중치
+# TODO : 준공년도, 방향, 아파트 좌표 등 추가 데이터 부분에서 코사인 유사도에 적용하기 위해 벡터화 할 부분이 있으면 하면 됨.
+apt_df['location'] = apt_df['location'] * 2 # location을 2배 가중치
+#apt_df['words'] = apt_df['words'] * 2 # location을 2배 가중치
 
 # 텍스트 데이터 생성 (TF-IDF 입력용)
 apt_df['basic_apt'] = (
@@ -49,7 +51,8 @@ def basic_apt_based_filtering(id):
     print(f"면적: {selected_apt['area']}, 매매가: {selected_apt['매매금액']}, 전세가: {selected_apt['전세금액']}")
     print(f"보증금: {selected_apt['월세보중금']}, 월세: {selected_apt['월세금액']}")
     print(f"설명: {selected_apt['words']} \n")
-
+    
+    # TODO : 준공년도, 방향, 아파트 좌표 등 추가 데이터 부분에서 사전 필터링할 부분이 있으면 하면 됨.
     filtered_apts = original_apt_df[
         (abs(original_apt_df['매매금액'] - selected_apt['매매금액']) <= 1000) &
         (abs(original_apt_df['전세금액'] - selected_apt['전세금액']) <= 1000) &
@@ -87,7 +90,7 @@ def basic_apt_based_filtering(id):
             continue
         
         count += 1
-        if float(row['similarity']) < 0.1 or count > 10:
+        if float(row['similarity']) < 0.04 or count > 10:
             break
         
         # 새로운 아파트만 추가
